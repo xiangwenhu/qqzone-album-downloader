@@ -8,10 +8,6 @@ console.log("os.type()", os.type())
 
 export const CHROME_PATH = IS_WINDOWS ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" : path.resolve("/usr/bin/google-chrome");
 
-
-export const DATA_ROOT_DY = path.resolve("/data/crawl/dy");
-
-
 export const PUPPETEER_LAUNCH_OPTIONS_BUILTIN = {
     headless: true,
     ignoreHTTPSErrors: true,

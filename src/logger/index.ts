@@ -21,33 +21,12 @@ log4js.configure({
             numBackups: 7,
             keepFileExt: true
         },
-        errorDefault: { type: "logLevelFilter", level: "error", appender: "errorLog" },
-        allScheduleLog:{
-            type: "dateFile",
-            filename: `${logPath}schedule-allLog.log`,
-            pattern: "yyyy-MM-dd",
-            alwaysIncludePattern: true,
-            numBackups: 7,
-            keepFileExt: true
-        },
-        errorScheduleLog: {
-            type: "dateFile",
-            pattern: "yyyy-MM-dd",
-            filename: `${logPath}schedule-error.log`,
-            alwaysIncludePattern: true,
-            numBackups: 7,
-            keepFileExt: true
-        },
-        errorSchedule: { type: "logLevelFilter", level: "error", appender: "errorScheduleLog" },
     },
     categories: {
         default: { appenders: ["out", "allLog", "errorDefault"], level: "debug" },
-        schedule: { appenders: ["out", "allScheduleLog", "errorSchedule"], level: "debug" },
     }
 });
 
 const logger = log4js.getLogger("default");
-
-export const scheduleLogger = log4js.getLogger("schedule");
 
 export default logger;

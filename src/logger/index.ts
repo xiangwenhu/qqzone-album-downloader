@@ -21,6 +21,7 @@ log4js.configure({
             numBackups: 7,
             keepFileExt: true
         },
+        errorDefault: { type: "logLevelFilter", level: "error", appender: "errorLog" },
     },
     categories: {
         default: { appenders: ["out", "allLog", "errorDefault"], level: "debug" },

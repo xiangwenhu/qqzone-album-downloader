@@ -48,5 +48,12 @@ export const HOME_URL = "https://user.qzone.qq.com";
 
 
 export const API_URLS = {
-    fcg_list_album_v3: "https://user.qzone.qq.com/proxy/domain/photo.qzone.qq.com/fcgi-bin/fcg_list_album_v3"
+    /**
+     * 相册列表
+     */
+    fcg_list_album_v3: "https://user.qzone.qq.com/proxy/domain/photo.qzone.qq.com/fcgi-bin/fcg_list_album_v3",
+    /**
+     * 相册的图片
+     */
+    cgi_list_photo: "https://user.qzone.qq.com/proxy/domain/photo.qzone.qq.com/fcgi-bin/cgi_list_photo"
 }

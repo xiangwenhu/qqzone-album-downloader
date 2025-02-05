@@ -84,3 +84,7 @@ export function readJSONSync(filePath: string): any {
         throw err; // 重新抛出错误以便调用者处理
     }
 }
+
+export function writeJSONFile(filePath: string, data: any) {
+    fs.writeFileSync(filePath, JSON.stringify(data, undefined, "\t"))
+}

@@ -1,10 +1,13 @@
 import { Browser, Cookie, Page, Protocol } from "puppeteer-core";
 import logger from "../logger";
 import * as pup from "../puppeteer";
-import { arrayToMap, delay, startWithTimeout, uniqueArray } from "../util";
+import { arrayToMap, delay, startWithTimeout, uniqueArray, writeJSONFile } from "../util";
 import { checkLogin } from "./util";
 import { getLaunchOptions } from "../puppeteer/const";
 import { API_URLS, HOME_URL } from "../const";
+import qs from "query-string";
+import { AlbumItem, ResData } from "./types";
+import path from "path";
 
 interface Options {
     timeout: number;
@@ -22,7 +25,13 @@ export default class Crawler {
 
     private options: Options = DEFAULT_OPTIONS;
 
-    private qqNum: string = "";
+    private commonInfo: {
+        qqNum: string;
+        g_tk: string;
+    } = {
+            qqNum: "",
+            g_tk: ""
+        }
 
     constructor(private cookies: Cookie[], options: Options = DEFAULT_OPTIONS) {
         this.options = {
@@ -66,7 +75,9 @@ export default class Crawler {
             await this.prepare();
 
 
-            this.getAlbumList();
+            const albumList = await this.getAlbumList();
+
+            writeJSONFile(path.join(__dirname, "../../data/album.json"), albumList);
 
 
             await delay(5 * 60 * 1000);
@@ -108,7 +119,7 @@ export default class Crawler {
         const cQQNum = this.cookies.find((c => c.name === 'ptui_loginuin'));
         if (!cQQNum) throw new Error("未找到qq号码")
 
-        this.qqNum = cQQNum.value;
+        this.commonInfo.qqNum = cQQNum.value;
 
         await checkLogin(page, `${HOME_URL}/${cQQNum.value}`);
         logger.log("检查登陆状态: 完毕");
@@ -125,9 +136,7 @@ export default class Crawler {
         //     item && (item as HTMLLIElement).click();
         // });
 
-
-
-        this.page.goto(`https://user.qzone.qq.com/${this.qqNum}/4`)
+        this.page.goto(`https://user.qzone.qq.com/${this.commonInfo.qqNum}/4`)
 
         const res = await this.page.waitForResponse((res) => {
             const url = res.url();
@@ -144,6 +153,90 @@ export default class Crawler {
     async getAlbumList() {
         const apiUrl = await this.getAlbumListApiUrl();
         console.log("apiUrl:", apiUrl);
+
+
+        let hasNextPage = true;
+        let total = 0;
+        let pageStart = 0;
+        const pageSize = 30;
+
+        const items: AlbumItem[] = [];
+        while (hasNextPage) {
+
+            const fullUrl = this.buildAlbumListApiUrl(apiUrl, pageStart)
+
+            const res: ResData = await this.page.evaluate((url) => {
+                return fetch(url).then(r => r.json())
+            }, fullUrl);
+
+            if (res.code != 0) throw new Error(res.message);
+
+            const albumList: AlbumItem[] = res.data.albumListModeSort || res.data.albumList || [];
+
+            items.push(...albumList);
+
+            total = res.data.albumsInUser;
+
+            // 获取的数量大于等于30
+            hasNextPage = albumList.length >= pageSize;
+
+            pageStart += pageSize;
+
+        }
+
+        return items;
+
+    }
+
+
+    private buildAlbumListApiUrl(url: string, pageStart: number) {
+
+        const qsObj = qs.parse(url.split("?")[1]);
+        qsObj["format"] = "json";
+        qsObj["pageStart"] = `${pageStart}`;
+        const qsStr = qs.stringify(qsObj);
+
+        return `${API_URLS.fcg_list_album_v3}?${qsStr}`
+    }
+
+
+
+    private async getAlbumPhotos(item: AlbumItem) {
+
+        const qsObj = {
+            g_tk: "1058931421",
+            topicId: item.id,
+            idcNum: 4,
+            mode: 2,
+            pageNum: 50,
+            noTopic: 0,
+            sortOrder: 6,
+            hostUin: this.commonInfo.qqNum,
+            uin: this.commonInfo.qqNum,
+            inCharset: "gbk",
+            outCharset: "gbk",
+            notice: 0,
+            source: "qzone",
+            plat: "qzone",
+            format: "json",
+            appid: 4,
+            pageStart: 0
+        }
+
+
+
+        const res = await this.page.waitForResponse((res) => {
+            const url = res.url();
+            if (url.startsWith(API_URLS.fcg_list_album_v3)) {
+                return true;
+            }
+            return false;
+        });
+    }
+
+
+    private downloadAlbum(item: AlbumItem) {
+
 
     }
 

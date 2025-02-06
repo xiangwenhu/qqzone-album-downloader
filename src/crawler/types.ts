@@ -22,7 +22,7 @@ export interface AlbumItem {
     id: string;
     lastuploadtime: number;
     modifytime: number;
-    name: Date;
+    name: string;
     order: number;
     pre: string;
     priv: number;
@@ -49,7 +49,7 @@ export interface PhotoItem {
     ismultiup: number;
     lloc: string;
     modifytime: number;
-    name: Date;
+    name: string;
     origin: number;
     origin_height: number;
     origin_upload: number;

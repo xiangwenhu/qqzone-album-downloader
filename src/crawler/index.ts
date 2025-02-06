@@ -1,13 +1,18 @@
 import { Browser, Cookie, Page, Protocol } from "puppeteer-core";
 import logger from "../logger";
 import * as pup from "../puppeteer";
-import { arrayToMap, delay, startWithTimeout, uniqueArray, writeJSONFile } from "../util";
+import { arrayToMap, delay, readJSONSync, startWithTimeout, uniqueArray, writeJSONFile } from "../util";
 import { checkLogin } from "./util";
 import { getLaunchOptions } from "../puppeteer/const";
 import { API_URLS, HOME_URL } from "../const";
 import qs from "query-string";
-import { AlbumItem, ResData } from "./types";
+import { AlbumItem, PhotoItem, ResData } from "./types";
 import path from "path";
+import config from "../config";
+import { mkdir } from "fs/promises";
+import { existsSync } from "fs";
+import { randomUUID } from "crypto";
+import { downloadFileWithRetry } from "../util/loader";
 
 interface Options {
     timeout: number;
@@ -77,7 +82,12 @@ export default class Crawler {
 
             const albumList = await this.getAlbumList();
 
-            writeJSONFile(path.join(__dirname, "../../data/album.json"), albumList);
+            // writeJSONFile(path.join(__dirname, "../../data/album.json"), albumList);
+
+            const albums = await readJSONSync(path.join(__dirname, "../../data/album.json"));
+
+
+            this.downloadAlbumList(albums);
 
 
             await delay(5 * 60 * 1000);
@@ -150,41 +160,50 @@ export default class Crawler {
     }
 
 
+
+    private getCommonQueryInfo(url: string) {
+        const qsObj = qs.parse(url.split("?")[1]);
+        this.commonInfo.g_tk = qsObj.g_tk as string || "";
+    }
+
+
     async getAlbumList() {
         const apiUrl = await this.getAlbumListApiUrl();
         console.log("apiUrl:", apiUrl);
 
+        this.getCommonQueryInfo(apiUrl);
 
-        let hasNextPage = true;
-        let total = 0;
-        let pageStart = 0;
-        const pageSize = 30;
 
-        const items: AlbumItem[] = [];
-        while (hasNextPage) {
+        // let hasNextPage = true;
+        // let total = 0;
+        // let pageStart = 0;
+        // const pageSize = 30;
 
-            const fullUrl = this.buildAlbumListApiUrl(apiUrl, pageStart)
+        // const items: AlbumItem[] = [];
+        // while (hasNextPage) {
 
-            const res: ResData = await this.page.evaluate((url) => {
-                return fetch(url).then(r => r.json())
-            }, fullUrl);
+        //     const fullUrl = this.buildAlbumListApiUrl(apiUrl, pageStart)
 
-            if (res.code != 0) throw new Error(res.message);
+        //     const res: ResData = await this.page.evaluate((url) => {
+        //         return fetch(url).then(r => r.json())
+        //     }, fullUrl);
 
-            const albumList: AlbumItem[] = res.data.albumListModeSort || res.data.albumList || [];
+        //     if (res.code != 0) throw new Error(res.message);
 
-            items.push(...albumList);
+        //     const albumList: AlbumItem[] = res.data.albumListModeSort || res.data.albumList || [];
 
-            total = res.data.albumsInUser;
+        //     items.push(...albumList);
 
-            // 获取的数量大于等于30
-            hasNextPage = albumList.length >= pageSize;
+        //     total = res.data.albumsInUser;
 
-            pageStart += pageSize;
+        //     // 获取的数量大于等于30
+        //     hasNextPage = albumList.length >= pageSize;
 
-        }
+        //     pageStart += pageSize;
 
-        return items;
+        // }
+
+        // return items;
 
     }
 
@@ -202,13 +221,17 @@ export default class Crawler {
 
 
     private async getAlbumPhotos(item: AlbumItem) {
+        const pageNum = 50;
+        let pageStart = 0;
+        let hasNextPage = true;
 
         const qsObj = {
-            g_tk: "1058931421",
+            g_tk: this.commonInfo.g_tk || '2015824241',
             topicId: item.id,
             idcNum: 4,
-            mode: 2,
-            pageNum: 50,
+            // 照片模式，2是旅行？
+            mode: 0,
+            pageNum,
             noTopic: 0,
             sortOrder: 6,
             hostUin: this.commonInfo.qqNum,
@@ -220,24 +243,74 @@ export default class Crawler {
             plat: "qzone",
             format: "json",
             appid: 4,
-            pageStart: 0
+            pageStart
         }
 
 
+        let photos: PhotoItem[] = [];
+        let total: number = 0;
+        while (hasNextPage) {
 
-        const res = await this.page.waitForResponse((res) => {
-            const url = res.url();
-            if (url.startsWith(API_URLS.fcg_list_album_v3)) {
-                return true;
-            }
-            return false;
-        });
+            const query = qs.stringify(qsObj);
+            const fullUrl = `${API_URLS.cgi_list_photo}?${query}`;
+
+
+            const res: ResData = await this.page.evaluate((url) => {
+                return fetch(url).then(r => r.json())
+            }, fullUrl);
+
+
+            total = res.data.totalInAlbum || 0;
+
+
+            const photoList: PhotoItem[] = res.data.photoList || [];
+
+            photos.push(...photoList);
+
+            hasNextPage = photoList.length >= pageNum || photos.length < total;
+
+
+            qsObj.pageStart += pageNum;
+
+        }
+
+        return photos;
+
     }
 
 
-    private downloadAlbum(item: AlbumItem) {
+    private async downloadAlbum(item: AlbumItem) {
+        const photos: PhotoItem[] = await this.getAlbumPhotos(item);
+
+        console.log("photos.length:", photos.length);
 
 
+        const dir = path.join(config.distDir, item.name);
+
+        if (existsSync(dir)) return;
+
+        await mkdir(dir, { recursive: true })
+
+        for (let i = 0; i < photos.length; i++) {
+            const photo = photos[i];
+
+            let fullDist = path.join(dir, `${photo.name}.png`);
+
+            if (existsSync(fullDist)) {
+                fullDist = path.join(dir, `${randomUUID()}-${photo.name}.png`);
+            }
+
+            await downloadFileWithRetry(photo.url, fullDist);
+        }
+
+    }
+
+
+    private async downloadAlbumList(items: AlbumItem[]) {
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            await this.downloadAlbum(item);
+        }
     }
 
 

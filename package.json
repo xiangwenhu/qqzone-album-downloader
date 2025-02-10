@@ -2,7 +2,9 @@
     "name": "qqzone-album-downloader",
     "version": "0.0.1",
     "main": "index.js",
-    "scripts": {},
+    "scripts": {
+        "start": "ts-node ./src/index.ts"
+    },
     "keywords": [],
     "author": "",
     "license": "ISC",
@@ -19,5 +21,8 @@
         "@types/node": "^20.14.8",
         "ts-node": "^10.9.2",
         "typescript": "^5.7.3"
+    },
+    "engines": {
+        "node": ">20.0.0"
     }
 }

@@ -33,8 +33,9 @@ export const PUPPETEER_LAUNCH_OPTIONS_CHROME_XVFB = {
 }
 
 export function getLaunchOptions(): LaunchOptions {
-    return IS_WINDOWS ? {
-        ...PUPPETEER_LAUNCH_OPTIONS_BUILTIN,
-        headless: false
-    } : PUPPETEER_LAUNCH_OPTIONS_BUILTIN
+    // return IS_WINDOWS ? {
+    //     ...PUPPETEER_LAUNCH_OPTIONS_BUILTIN,
+    //     // headless: false
+    // } : PUPPETEER_LAUNCH_OPTIONS_BUILTIN
+    return PUPPETEER_LAUNCH_OPTIONS_BUILTIN
 }

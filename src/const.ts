@@ -1,12 +1,13 @@
 import path from "path";
 import os from "os";
+import config from "./config";
 
 
 export const IS_WINDOWS = os.type().toLowerCase().includes("windows");
 
 console.log("os.type()", os.type())
 
-export const CHROME_PATH = IS_WINDOWS ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" : path.resolve("/usr/bin/google-chrome");
+export const CHROME_PATH = config.chrome;
 
 export const PUPPETEER_LAUNCH_OPTIONS_BUILTIN = {
     headless: true,
